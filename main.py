@@ -1,4 +1,7 @@
+
 import logging
+import pandas as pd
+import numpy as np
 
 try:
     from sklearn.model_selection import train_test_split 
@@ -31,6 +34,8 @@ def regression():
     model = LinearRegression(lr=0.01, max_iters=2000, penalty="l2", C=0.03)
     model.fit(X_train, y_train)
     predictions = model.predict(X_test)
+    predictions = np.array(model.predict(X_test))
+    y_test = np.array(y_test)
     print("regression mse", mean_squared_error(y_test, predictions))
 
 
@@ -65,16 +70,23 @@ def balanced_accuracy(tp, fp, tn, fn):
     return (tpr + tnr) / 2
 
 
-def classification():
-    X, y = make_classification(
-        n_samples=5000,
-        n_features=50,
-        n_informative=30,
-        n_redundant=10,
-        n_classes=2,
-        weights=[0.95, 0.05],  # imbalance
-        random_state=1111
-    )
+def classification(file_path, target_col):
+    from sklearn.model_selection import train_test_split
+
+    df = pd.read_csv(file_path)
+
+    X = df.drop(columns=[target_col])
+
+    # encode categorical features
+    X = pd.get_dummies(X)
+
+    y = df[target_col]
+
+    if y.dtype == "object":
+        y = y.astype("category").cat.codes
+
+    X = X.to_numpy(dtype=float)
+    y = y.to_numpy()
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.1, random_state=1111
@@ -83,28 +95,27 @@ def classification():
     model = LogisticRegression(lr=0.01, max_iters=500, penalty="l1", C=0.01)
     model.fit(X_train, y_train)
 
+    '''
     predictions = model.predict(X_test)
 
     tp, fp, tn, fn = confusion_matrix_manual(y_test, predictions)
+    '''
+    predictions = np.array(model.predict(X_test))
+    y_test = np.array(y_test)
 
-    acc = accuracy(y_test, predictions)
-    prec = precision(tp, fp)
-    rec = recall(tp, fn)
-    f1_score = f1(prec, rec)
-    bal_acc = balanced_accuracy(tp, fp, tn, fn)
+    tp, fp, tn, fn = confusion_matrix_manual(y_test, predictions)
 
-    print("\nClassification Metrics")
-    print("Accuracy:", acc)
-    print("Precision:", prec)
-    print("Recall:", rec)
-    print("F1-score:", f1_score)
-    print("Balanced Accuracy:", bal_acc)
+    print("\nResults")
+    print("Accuracy:", accuracy(y_test, predictions))
+    print("Precision:", precision(tp, fp))
+    print("Recall:", recall(tp, fn))
+    print("F1:", f1(precision(tp, fp), recall(tp, fn)))
+    print("Balanced Accuracy:", balanced_accuracy(tp, fp, tn, fn))
 
-    print("\nConfusion Matrix:")
-    print("TP:", tp, "FP:", fp, "TN:", tn, "FN:", fn)
 
 
 if __name__ == "__main__":
     regression()
-    classification()
-
+    classification("dataset_867_visualizing_livestock.csv", "binaryClass")
+    classification("dataset_765_analcatdata_apnea2.csv", "binaryClass")
+    classification("dataset_311_oil_spill.csv", "class")
